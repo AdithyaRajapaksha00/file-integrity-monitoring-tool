@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Backups</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/versioning.css') }}">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="profile">
+            <img src="{{ profile.profile_pic }}" alt="Profile Pic">
+            <h3 id="username">{{ profile.email }}</h3>
+        </div>
+        <a href="/dashboard" class="nav-link"><i class="fas fa-chart-pie"></i> Analyze</a>
+        <a href="/agent" class="nav-link"><i class="fas fa-robot"></i> Agent</a>
+        <a href="/monitor" class="nav-link"><i class="fas fa-desktop"></i> Monitor</a>
+        <a href="/versioning" class="nav-link"><i class="fas fa-code-branch"></i> Versioning</a>
+        <a href="/logout" class="nav-link"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    </div>
+
+    <div class="main">
+        <div class="top-bar">
+            <h2>Backups</h2>
+        </div>
+        <div class="table-container">
+            <table id="backupsTable">
+                <thead>
+                    <tr>
+                        <th>File Path</th>
+                        <th>Hash</th>
+                        <th>Created</th>
+                        <th>File Type</th>
+                        <th>Size</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function fetchBackups() {
+            $.get("/backups/data", function (backups) {
+                let rows = "";
+                backups.forEach(b => {
+                    rows += `
+                <tr>
+                    <td>${b.path}</td>
+                    <td>${b.hash}</td>
+                    <td>${b.time}</td>
+                    <td>${b.file_type}</td>
+                    <td>${b.size}</td>
+                    <td><button class="restore-btn" onclick="restoreFile(${b.id})">Restore</button></td>
+                </tr>
+            `;
+                });
+                $("#backupsTable tbody").html(rows);
+            });
+        }
+
+        function restoreFile(id) {
+            if (confirm("Are you sure you want to restore this file?")) {
+                $.post("/backups/restore", { id: id }, function (res) {
+                    alert(res.message);
+                    fetchBackups();
+                });
+            }
+        }
+
+        // Init
+        fetchBackups();
+    </script>
+</body>
+
+</html>

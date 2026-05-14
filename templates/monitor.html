@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Monitor Agent</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="profile">
+            <img src="{{ profile.profile_pic }}" alt="Profile Pic">
+            <h3 id="username">{{ profile.email }}</h3>
+        </div>
+        <a href="/dashboard" class="nav-link"><i class="fas fa-chart-pie"></i> Analyze</a>
+        <a href="/agent" class="nav-link"><i class="fas fa-robot"></i> Agent</a>
+        <a href="/monitor" class="nav-link"><i class="fas fa-desktop"></i> Monitor</a>
+        <a href="/versioning" class="nav-link"><i class="fas fa-code-branch"></i> Versioning</a>
+        <a href="/logout" class="nav-link"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    </div>
+    <div class="main">
+        <div class="top-bar">
+            <h2>Agent - <span id="agentStatus">{{agent.name}}</span></h2>
+            <div>
+                <span id="clock" style="margin-right: 20px; font-weight: bold;"></span>
+                <button class="status-btn" id="toggleStatus">{{ 'Stop' if agent.status else 'Start' }}</button>
+            </div>
+        </div>
+
+        <canvas id="barChart" height="300"></canvas>
+        <div class="table-container">
+            <table id="logsTable">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>File Path</th>
+                        <th>Hash</th>
+                        <th>Size</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Priority</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        function updateClock() {
+            $('#clock').text(new Date().toLocaleTimeString());
+        }
+
+        function fetchBarData() {
+            $.get("/monitor/data", function (data) {
+                console.log(data);
+                const labels = Object.keys(data);
+                const values = Object.values(data);
+
+                if (!chart) {
+                    const ctx = document.getElementById("barChart").getContext("2d");
+                    chart = new Chart(ctx, {
+                        type: "bar",
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: "Event Count",
+                                data: values,
+                                backgroundColor: "#2575fc"
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: { beginAtZero: true }
+                            }
+                        }
+                    });
+                } else {
+                    chart.data.labels = labels;
+                    chart.data.datasets[0].data = values;
+                    chart.update();
+                }
+            });
+        }
+
+        function fetchLogs() {
+            $.get("/monitor/logs", function (logs) {
+                let rows = "";
+                logs.forEach(log => {
+                    rows += `
+                        <tr>
+                            <td>${log.event_type}</td>
+                            <td>${log.file_path}</td>
+                            <td>${log.file_hash}</td>
+                            <td>${log.file_size}</td>
+                            <td>${log.file_type}</td>
+                            <td>${log.file_category}</td>
+                            <td>${log.priority_level}</td>
+                            <td>${log.timestamp}</td>
+                        </tr>`;
+                });
+                $("#logsTable tbody").html(rows);
+            });
+        }
+
+        $("#toggleStatus").click(function () {
+            $.post("/monitor/toggle", function (res) {
+                const running = res.status === 1;
+                $("#toggleStatus").text(running ? "Stop" : "Start");
+                $("#agentStatus").text(running ? "Running" : "Stopped");
+            });
+        });
+
+        // Init
+        updateClock();
+        fetchBarData();
+        fetchLogs();
+
+        setInterval(updateClock, 1000);
+        setInterval(fetchBarData, 5000);
+        setInterval(fetchLogs, 5000);
+    </script>
+</body>
+
+</html>

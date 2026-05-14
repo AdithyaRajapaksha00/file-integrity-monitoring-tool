@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Agent Settings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/agent.css') }}">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="profile">
+            <img src="{{ profile.profile_pic }}" alt="Profile Pic">
+            <h3 id="username">{{ profile.email }}</h3>
+        </div>
+        <a href="/dashboard" class="nav-link"><i class="fas fa-chart-pie"></i> Analyze</a>
+        <a href="/agent" class="nav-link"><i class="fas fa-robot"></i> Agent</a>
+        <a href="/monitor" class="nav-link"><i class="fas fa-desktop"></i> Monitor</a>
+        <a href="/versioning" class="nav-link"><i class="fas fa-code-branch"></i> Versioning</a>
+        <a href="/logout" class="nav-link"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    </div>
+
+    <div class="main">
+
+        <label for="agent_name">Agent Name:</label>
+        <input type="text" id="agent_name" value="{{ agent.name }}">
+
+        <label for="agent_status" class="agent-label">Agent Status:</label>
+        <label class="switch">
+            <input type="checkbox" id="agent_status" {% if agent.status %}checked{% endif %}>
+            <span class="slider"></span>
+        </label>
+        <div class="settings">
+            <div class="col">
+                <h3 style="margin-top: 40px;">Events and Priorities</h3>
+                <table>
+                    <tr>
+                        <th>Event</th>
+                        <th>Priority</th>
+                    </tr>
+                    {% for event in events %}
+                    <tr>
+                        <td>{{ event.event_name }}</td>
+                        <td>
+                            <select class="event-priority" data-event="{{ event.event_name }}">
+                                <option value="Low" {% if event.priority=='Low' %}selected{% endif %}>Low</option>
+                                <option value="Medium" {% if event.priority=='Medium' %}selected{% endif %}>Medium
+                                </option>
+                                <option value="High" {% if event.priority=='High' %}selected{% endif %}>High</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <div class="col">
+                <h3 style="margin-top: 40px;">Priority Actions</h3>
+                <table>
+                    <tr>
+                        <th>Priority</th>
+                        <th>Action</th>
+                    </tr>
+                    {% for priority in priorities %}
+                    <tr>
+                        <td>{{ priority.priority_level }}</td>
+                        <td>
+                            <select class="priority-action" data-priority="{{ priority.priority_level }}">
+                                <option value="Email Notification" {% if priority.action=='Email Notification'
+                                    %}selected{% endif %}>Email Notification</option>
+                                <option value="Backup Restore" {% if priority.action=='Backup Restore' %}selected{%
+                                    endif %}>Backup Restore</option>
+                                <option value="Email + Backup Restore" {% if priority.action=='Email + Backup Restore'
+                                    %}selected{% endif %}>Email + Backup Restore</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+        </div>
+
+        <button id="save_btn">Save Settings</button>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            $("#save_btn").click(function () {
+                let agentData = {
+                    name: $("#agent_name").val(),
+                    status: $("#agent_status").is(":checked") ? 1 : 0,
+                    events: {},
+                    priorities: {}
+                };
+
+                $(".event-priority").each(function () {
+                    let event = $(this).data("event");
+                    let priority = $(this).val();
+                    agentData.events[event] = priority;
+                });
+
+                $(".priority-action").each(function () {
+                    let priority = $(this).data("priority");
+                    let action = $(this).val();
+                    agentData.priorities[priority] = action;
+                });
+
+                $.ajax({
+                    url: "/agent/save",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(agentData),
+                    success: function (response) {
+                        alert(response.message);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

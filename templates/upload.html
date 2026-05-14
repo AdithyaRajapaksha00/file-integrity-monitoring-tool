@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - File Upload</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="profile">
+            <img src="{{ profile.profile_pic }}" alt="Profile Pic">
+            <h3 id="username">{{ profile.email }}</h3>
+        </div>
+
+        <a href="/dashboard" class="nav-link"><i class="fas fa-chart-pie"></i> Analyze</a>
+        <a href="/agent" class="nav-link"><i class="fas fa-robot"></i> Agent</a>
+        <a href="/monitor" class="nav-link"><i class="fas fa-desktop"></i> Monitor</a>
+        <a href="/versioning" class="nav-link"><i class="fas fa-code-branch"></i> Versioning</a>
+        <a href="/logout" class="nav-link"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    </div>
+
+    <div class="main">
+        <div class="header">
+            <div class="agent-info">
+                <strong>Agent Name:</strong> <span id="agent-name">{{agent.name}}</span> | <strong>Status:</strong>
+                <span style="color: {{ 'green' if agent.status else 'red' }}">{{ 'On' if agent.status else 'Off'
+                    }}</span>
+            </div>
+            <div>
+                <label for="backup-toggle">Enable Backup</label>
+                <label class="switch">
+                    <input type="checkbox" id="backup-toggle">
+                    <span class="slider"></span>
+                </label>
+                <button id="uploadBtn"><i class="fas fa-upload"></i> Upload Files</button>
+            </div>
+            <button id="resetBtn" class="danger-btn"><i class="fas fa-trash"></i> Reset All</button>
+
+        </div>
+
+        <div class="metrics">
+            <div class="metric-box"><i class="fas fa-file-alt"></i>
+                <div><strong id="file-count">0</strong><br>Files</div>
+            </div>
+            <div class="metric-box"><i class="fas fa-folder"></i>
+                <div><strong id="folder-count">0</strong><br>Systems</div>
+            </div>
+            <div class="metric-box"><i class="fas fa-database"></i>
+                <div><strong id="total-size">0</strong> MB<br>Size</div>
+            </div>
+        </div>
+
+        <div class="upload-info">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Path</th>
+                            <th>Hash</th>
+                            <th>Size (MB)</th>
+                            <th>Type</th>
+                            <th>Backup</th>
+                        </tr>
+                    </thead>
+                    <tbody id="file-table-body">
+                    </tbody>
+                </table>
+            </div>
+
+            <canvas id="fileTypeChart"></canvas>
+        </div>
+
+
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            $.get('/get_agent_info', function (data) {
+                $('#agent-name').text(data.name);
+                $('#username').text(data.username);
+            });
+
+            let pieChart;
+
+            updatePieChart([{ "file_type": "-" }])
+
+            $.ajax({
+                url: '/uploaded_items',
+                type: 'GET',
+                success: function (response) {
+                    if (response.data) {
+                        populateTable(response.data);
+                        updateMetrics(response.data);
+                        updatePieChart(response.data);
+                    }
+
+                },
+                error: function () {
+                    alert("No files or folders selected!");
+                }
+            });
+
+            $('#uploadBtn').click(function () {
+                let backupEnabled = $('#backup-toggle').is(':checked');
+
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ backup: backupEnabled }),
+                    success: function (response) {
+                        alert(response.message);
+                        if (response.data) {
+                            populateTable(response.data);
+                            updateMetrics(response.data);
+                            updatePieChart(response.data);
+                        }
+
+                    },
+                    error: function () {
+                        alert("No files or folders selected!");
+                    }
+                });
+            });
+
+            $('#resetBtn').click(function () {
+                if (confirm("Are you sure you want to reset all data and backups? This cannot be undone.")) {
+                    $.ajax({
+                        url: '/reset',
+                        type: 'POST',
+                        success: function (res) {
+                            alert(res.message);
+                            location.reload();
+                        },
+                        error: function (err) {
+                            alert("Error resetting system.");
+                            console.error(err);
+                        }
+                    });
+                }
+            });
+
+
+            function populateTable(files) {
+                $('#file-table-body').empty();
+                files.forEach(file => {
+                    $('#file-table-body').append(`
+                        <tr>
+                            <td>${file.filename || '-'}</td>
+                            <td>${file.path}</td>
+                            <td>${file.hash || '-'}</td>
+                            <td>${file.size || '-'}</td>
+                            <td>${file.file_type}</td>
+                            <td>${file.backup || '-'}</td>
+                        </tr>`);
+                });
+            }
+
+            function updateMetrics(data) {
+                let fileCount = 0, folderCount = 0, totalSize = 0;
+                data.forEach(item => {
+                    if (item.file_type === 'folder') folderCount++;
+                    else {
+                        fileCount++;
+                        totalSize += item.size || 0;
+                    }
+                });
+                $('#file-count').text(fileCount);
+                $('#folder-count').text(folderCount);
+                $('#total-size').text(totalSize.toFixed(2));
+            }
+
+            function updatePieChart(data) {
+                const typeCounts = {};
+                data.forEach(item => {
+                    const type = item.file_type;
+                    typeCounts[type] = (typeCounts[type] || 0) + 1;
+                });
+
+                const labels = Object.keys(typeCounts);
+                const counts = Object.values(typeCounts);
+
+                if (pieChart) pieChart.destroy();
+
+                const ctx = document.getElementById('fileTypeChart').getContext('2d');
+                pieChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: counts,
+                            backgroundColor: [
+                                '#4a90e2', '#50e3c2', '#f5a623', '#e94e77', '#7b7bff'
+                            ]
+                        }]
+                    },
+                    options: {
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
