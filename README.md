@@ -23,32 +23,21 @@ Once installed:
 Launch XAMPP Control Panel
 Start both Apache and MySQL
 
-2. Set Up the MySQL Database
-
-Before running the application:
-
-Open phpMyAdmin via http://localhost/phpmyadmin
-
-Import the provided SQL file:
-Locate the file: file_monitoring (2).sql
-Click on your database, then go to the Import tab
-Upload and import file_monitoring (2).sql
 
 
 
 --------------------------------------------------------------
 
 
-3. Configure Your Environment
-Make sure the app.py file contains the correct database credentials, such as:
+2. Configure Your Environment
+Make sure the app.py file contains the correct database credentials
 
-pip install flask flask-mysqldb watchdog
 
 --------------------------------------------------------------
 
 4. Run the Application
 
-Launch the Flask app:
+Launch the app:
 
 python app.py
 The application should be accessible via http://localhost:5000
